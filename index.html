@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Universal Travel Planner · Master</title>
+<style>
+:root {
+  --apple-bg: #f5f5f7;
+  --apple-card: #ffffff;
+  --apple-text: #1d1d1f;
+  --apple-subtext: #86868b;
+  --apple-line: rgba(0, 0, 0, 0.08);
+  --apple-blue: #0071e3;
+  --apple-blue-light: rgba(0, 113, 227, 0.1);
+  --apple-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+  --apple-radius: 18px;
+  --map-height: 250px;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+body {
+  margin: 0; padding: 0;
+  background: var(--apple-bg); color: var(--apple-text);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Apple SD Gothic Neo", "Pretendard", sans-serif;
+  line-height: 1.47059; letter-spacing: -0.022em;
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input, textarea, select { font: inherit; }
+button { cursor: pointer; border: none; outline: none; }
+
+.app-container {
+  max-width: 412px; margin: 0 auto; min-height: 100vh;
+  background: var(--apple-bg); position: relative;
+  box-shadow: 0 0 40px rgba(0,0,0,0.08); padding-bottom: 40px;
+}
+
+.sticky-top-wrapper {
+  position: sticky; top: 0; z-index: 1000;
+  background: rgba(245, 245, 247, 0.92);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--apple-line);
+}
+
+.hero-mini {
+  padding: 12px 18px; display: flex; justify-content: space-between; align-items: center;
+}
+.hero-title-group { cursor: pointer; }
+.hero-mini h1 { font-size: 16px; margin: 0; font-weight: 700; color: var(--apple-text); display: flex; align-items: center; gap: 4px; }
+.hero-mini h1::after { content: '✎'; font-size: 12px; color: var(--apple-blue); }
+.hero-mini p { margin: 1px 0 0; color: var(--apple-subtext); font-size: 11px; }
+.sync-badge {
+  font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 20px;
+  background: rgba(52, 199, 89, 0.12); color: #248a3d;
+}
+
+.map-sticky-container {
+  width: 100%; height: var(--map-height); background: #e5e3df;
+}
+#googleMap { width: 100%; height: 100%; }
+
+.day-tabs-wrapper {
+  padding: 10px 16px; background: rgba(245, 245, 247, 0.95);
+  border-top: 1px solid var(--apple-line); min-height: 54px;
+  display: flex; align-items: center;
+}
+.day-tabs {
+  display: flex; gap: 8px; overflow-x: auto; width: 100%;
+  -webkit-overflow-scrolling: touch; scrollbar-width: none;
+}
+.day-tabs::-webkit-scrollbar { display: none; }
+.day-tab {
+  flex: 0 0 auto; border: 1px solid var(--apple-line); background: var(--apple-card);
+  border-radius: 14px; padding: 6px 12px; text-align: center; min-width: 64px; color: var(--apple-text);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.02); transition: all 0.2s ease;
+}
+.day-tab strong { display: block; font-size: 12px; font-weight: 700; }
+.day-tab small { color: var(--apple-subtext); font-size: 10px; }
+.day-tab.active {
+  border-color: var(--apple-blue); background: var(--apple-blue); color: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 113, 227, 0.3);
+}
+.day-tab.active small { color: rgba(255,255,255,0.8); }
+
+.empty-tabs-notice {
+  width: 100%; text-align: center; font-size: 13px; font-weight: 600;
+  color: var(--apple-blue); cursor: pointer; padding: 6px 0;
+}
+
+.shell { padding: 16px 16px 0; }
+
+.timeline { display: flex; flex-direction: column; gap: 14px; margin-top: 4px; }
+.timeline-item { position: relative; }
+
+.place-card {
+  display: grid; grid-template-columns: 44px 1fr auto; gap: 12px; align-items: center;
+  background: var(--apple-card); border: 1px solid var(--apple-line); border-radius: var(--apple-radius);
+  padding: 14px 16px; box-shadow: var(--apple-shadow); cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.place-card.active-target {
+  border-color: var(--apple-blue);
+  box-shadow: 0 6px 20px rgba(0, 113, 227, 0.2);
+  transform: scale(1.015);
+}
+
+.place-badge {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+}
+.badge-num {
+  width: 26px; height: 26px; border-radius: 50%; background: var(--apple-blue);
+  color: white; font-weight: 700; font-size: 12px; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 113, 227, 0.3);
+}
+.badge-time { font-size: 10px; font-weight: 600; color: var(--apple-subtext); }
+
+.place-content h4 { margin: 0 0 2px; font-size: 15px; font-weight: 700; color: var(--apple-text); }
+.place-content p { margin: 0; color: var(--apple-subtext); font-size: 12px; }
+
+.map-link-btn {
+  display: inline-flex; align-items: center; gap: 3px;
+  background: var(--apple-blue-light); color: var(--apple-blue);
+  padding: 6px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;
+  text-decoration: none; transition: background 0.2s;
+}
+
+.memo-card {
+  margin: 2px 0 2px 8px; padding: 12px 16px;
+  background: rgba(255, 149, 0, 0.08); border-left: 3.5px solid #ff9500;
+  border-radius: 0 14px 14px 0; cursor: pointer;
+}
+.memo-header { font-size: 11px; color: #c77700; font-weight: 700; margin-bottom: 2px; }
+.memo-content { font-size: 13px; color: var(--apple-text); font-weight: 500; }
+
+.action-buttons-row { display: flex; gap: 10px; margin: 28px 0 10px; }
+.btn-add {
+  flex: 1; padding: 14px; border-radius: 16px; font-weight: 700; font-size: 14px;
+  display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s ease;
+}
+.btn-add-schedule { background: var(--apple-blue); color: white; box-shadow: 0 4px 14px rgba(0, 113, 227, 0.25); }
+.btn-add-memo { background: #e5e5ea; color: #3a3a3c; }
+
+.modal-overlay {
+  display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.4); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  z-index: 2500; align-items: center; justify-content: center; padding: 20px;
+}
+.modal-content {
+  background: var(--apple-card); border-radius: 24px; padding: 22px; width: 100%; max-width: 360px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.15); max-height: 85vh; overflow-y: auto;
+}
+.modal-content h3 { margin-top: 0; font-size: 17px; font-weight: 700; color: var(--apple-text); }
+.field { display: grid; gap: 6px; margin-bottom: 14px; }
+.field label { font-size: 12px; font-weight: 600; color: var(--apple-subtext); }
+
+.time-picker-group {
+  display: flex; gap: 8px; align-items: center;
+}
+.time-picker-select {
+  flex: 1; border: 1px solid var(--apple-line); border-radius: 12px; padding: 10px;
+  font-size: 15px; font-weight: 600; background: #f2f2f7; text-align: center;
+}
+
+input, textarea {
+  width: 100%; border: 1px solid var(--apple-line); border-radius: 12px; padding: 10px;
+  font-size: 14px; background: #f2f2f7; transition: all 0.2s;
+}
+input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blue); outline: none; }
+.btn { border: 0; border-radius: 12px; padding: 12px 14px; font-weight: 700; font-size: 13px; cursor: pointer; }
+.btn.primary { background: var(--apple-blue); color: white; }
+.btn.danger { background: #ff3b30; color: white; }
+.btn.ghost { background: #e5e5ea; color: #3a3a3c; }
+</style>
+</head>
+<body>
+
+<div class="app-container">
+  <div class="sticky-top-wrapper">
+    <header class="hero-mini">
+      <div class="hero-title-group" onclick="openTripConfigModal()">
+        <h1 id="tripTitleText">언제, 어디로 떠나볼까요?</h1>
+        <p id="tripSubtitleText">클릭하여 여행 일정 설정</p>
+      </div>
+      <div id="syncStatus" class="sync-badge">연결중...</div>
+    </header>
+
+    <div class="map-sticky-container">
+      <div id="googleMap"></div>
+    </div>
+
+    <div class="day-tabs-wrapper">
+      <div class="day-tabs" id="dayTabsSchedule"></div>
+    </div>
+  </div>
+
+  <main class="shell">
+    <div class="timeline" id="timelineContainer"></div>
+
+    <div class="action-buttons-row">
+      <button class="btn-add btn-add-schedule" onclick="openAddScheduleModal()">+ 일정 추가</button>
+      <button class="btn-add btn-add-memo" onclick="openAddMemoModal()">+ 메모 추가</button>
+    </div>
+  </main>
+
+  <div class="modal-overlay" id="tripConfigModal">
+    <div class="modal-content">
+      <h3>✈️ 여행 설정</h3>
+      <div class="field">
+        <label>여행 제목</label>
+        <input type="text" id="configTripTitle" placeholder="예: 2026 파리 여행">
+      </div>
+      <div class="field">
+        <label>여행 시작일</label>
+        <input type="date" id="configStartDate">
+      </div>
+      <div class="field">
+        <label>여행 종료일</label>
+        <input type="date" id="configEndDate">
+      </div>
+      <div style="display:flex; gap:8px; margin-top:16px;">
+        <button class="btn primary" style="flex:1;" onclick="submitTripConfig()">저장하기</button>
+        <button class="btn ghost" style="flex:1;" onclick="closeModals()">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="scheduleModal">
+    <div class="modal-content">
+      <h3 id="schModalTitle">📍 새 일정 추가</h3>
+      <div class="field">
+        <label>일정명 (장소 이름)</label>
+        <input type="text" id="schTitle" placeholder="예: 에펠탑">
+      </div>
+      <div class="field">
+        <label>시간 선택</label>
+        <div class="time-picker-group">
+          <select id="schHour" class="time-picker-select"></select>
+          <span style="font-weight:700;">:</span>
+          <select id="schMin" class="time-picker-select"></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>구글맵 URL (축약 주소 maps.app.goo.gl 가능)</label>
+        <input type="text" id="schUrl" placeholder="https://maps.app.goo.gl/...">
+      </div>
+      <div class="field">
+        <label>간단한 메모</label>
+        <textarea id="schNote" rows="2" placeholder="예: 입장권 사전 예매 필수"></textarea>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:16px;">
+        <button class="btn primary" style="flex:1;" id="schSubmitBtn" onclick="submitScheduleModal()">추가하기</button>
+        <button class="btn danger" id="schDeleteBtn" style="display:none;" onclick="deleteCurrentItem()">삭제</button>
+        <button class="btn ghost" style="flex:1;" onclick="closeModals()">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="memoModal">
+    <div class="modal-content">
+      <h3 id="memoModalTitle">📝 메모 추가</h3>
+      <div class="field">
+        <label>시간 선택</label>
+        <div class="time-picker-group">
+          <select id="memoHour" class="time-picker-select"></select>
+          <span style="font-weight:700;">:</span>
+          <select id="memoMin" class="time-picker-select"></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>메모 내용</label>
+        <textarea id="memoContent" rows="3" placeholder="예: 환전 및 교통카드 구매"></textarea>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:16px;">
+        <button class="btn primary" style="flex:1;" id="memoSubmitBtn" onclick="submitMemoModal()">메모 등록</button>
+        <button class="btn danger" id="memoDeleteBtn" style="display:none;" onclick="deleteCurrentItem()">삭제</button>
+        <button class="btn ghost" style="flex:1;" onclick="closeModals()">취소</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyASzKd905SeOvPJie1TpegzXQmQK98GWcY",
+    authDomain: "sydney-travel-2026-1617f.firebaseapp.com",
+    projectId: "sydney-travel-2026-1617f",
+    storageBucket: "sydney-travel-2026-1617f.appspot.com",
+    messagingSenderId: "561675298181",
+    appId: "1:561675298181:web:e2c6a8c4d7a095677d50ec",
+    measurementId: "G-LPVBR9DSTT",
+    databaseURL: "https://sydney-travel-2026-1617f-default-rtdb.firebaseio.com"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  const WEEK_DAYS = ["일", "월", "화", "수", "목", "금", "토"];
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const tripId = urlParams.get('id') || 'default_plan';
+
+  let masterData = { title: "", startDate: "", endDate: "", days: [] };
+  let selectedDay = 0;
+  let map = null;
+  let markers = [];
+  let routePolyline = null;
+  let editingItemIndex = null;
+  let currentPlaceBounds = null;
+  let activeFocusIndex = -1;
+
+  const tripRef = ref(db, 'travel_plans/' + tripId);
+  onValue(tripRef, (snapshot) => {
+    const data = snapshot.val();
+    if (data) {
+      masterData = data;
+    } else {
+      masterData = { title: "", startDate: "", endDate: "", days: [] };
+    }
+    document.getElementById("syncStatus").textContent = "🟢 실시간 연결됨";
+    updateHeaderUI();
+    renderTimelineAndMap();
+  }, (error) => {
+    document.getElementById("syncStatus").textContent = "🔴 연결 실패";
+  });
+
+  function saveData() { set(tripRef, masterData); }
+
+  function initTimePickers() {
+    const hourSelects = [document.getElementById("schHour"), document.getElementById("memoHour")];
+    const minSelects = [document.getElementById("schMin"), document.getElementById("memoMin")];
+
+    let hourOpts = "";
+    for (let i = 0; i < 24; i++) {
+      let h = i < 10 ? '0' + i : '' + i;
+      hourOpts += `<option value="${h}">${h}시</option>`;
+    }
+    hourSelects.forEach(s => s.innerHTML = hourOpts);
+
+    let minOpts = "";
+    for (let i = 0; i < 60; i += 5) {
+      let m = i < 10 ? '0' + i : '' + i;
+      minOpts += `<option value="${m}">${m}분</option>`;
+    }
+    minSelects.forEach(s => s.innerHTML = minOpts);
+  }
+  initTimePickers();
+
+  function setTimePickerValue(prefix, timeStr) {
+    let [h, m] = (timeStr || "09:00").split(":");
+    if (!h) h = "09";
+    if (!m) m = "00";
+    document.getElementById(prefix + "Hour").value = h;
+    let minNum = parseInt(m) || 0;
+    let roundedMin = Math.round(minNum / 5) * 5;
+    if (roundedMin >= 60) roundedMin = 55;
+    let mStr = roundedMin < 10 ? '0' + roundedMin : '' + roundedMin;
+    document.getElementById(prefix + "Min").value = mStr;
+  }
+
+  function getTimePickerValue(prefix) {
+    const h = document.getElementById(prefix + "Hour").value;
+    const m = document.getElementById(prefix + "Min").value;
+    return `${h}:${m}`;
+  }
+
+  window.initMap = function() {
+    const defaultPos = { lat: 37.5665, lng: 126.9780 };
+    map = new google.maps.Map(document.getElementById("googleMap"), {
+      center: defaultPos, zoom: 12, disableDefaultUI: true, zoomControl: true,
+      styles: [{ "featureType": "poi", "elementType": "labels", "stylers": [{ "visibility": "off" }] }]
+    });
+    renderTimelineAndMap();
+  };
+
+  function updateHeaderUI() {
+    const titleEl = document.getElementById("tripTitleText");
+    const subTitleEl = document.getElementById("tripSubtitleText");
+
+    if (masterData.title && masterData.title.trim() !== "") {
+      titleEl.textContent = masterData.title;
+      subTitleEl.textContent = `${masterData.startDate || ''} ~ ${masterData.endDate || ''}`;
+    } else {
+      titleEl.textContent = "언제, 어디로 떠나볼까요?";
+      subTitleEl.textContent = "클릭하여 여행 일정 설정";
+    }
+  }
+
+  function renderDayTabsHTML() {
+    if (!masterData.days || masterData.days.length === 0) {
+      return `<div class="empty-tabs-notice" onclick="openTripConfigModal()">여행 일정 등록이 필요해요 ➔</div>`;
+    }
+    return masterData.days.map((d, i) => `
+      <button class="day-tab ${i === selectedDay ? 'active' : ''}" onclick="selectDay(${i})">
+        <strong>${d.date.split(" ")[0]}</strong><small>${d.date.split(" ")[1]}</small>
+      </button>
+    `).join("");
+  }
+
+  window.selectDay = function(i) {
+    selectedDay = i;
+    activeFocusIndex = -1;
+    window.scrollTo(0, 0);
+    renderTimelineAndMap();
+  };
+
+  function renderTimelineAndMap() {
+    const dayTabsEl = document.getElementById("dayTabsSchedule");
+    if (dayTabsEl) dayTabsEl.innerHTML = renderDayTabsHTML();
+
+    if (!masterData.days || masterData.days.length === 0) {
+      renderTimeline([]);
+      updateMapMarkersAndRoute([]);
+      return;
+    }
+
+    if (selectedDay >= masterData.days.length) selectedDay = 0;
+    const d = masterData.days[selectedDay];
+    if (!d) return;
+
+    renderTimeline(d.items || []);
+    updateMapMarkersAndRoute(d.items || []);
+  }
+
+  function renderTimeline(items) {
+    const container = document.getElementById("timelineContainer");
+    if (!container) return;
+
+    if (!masterData.days || masterData.days.length === 0) {
+      container.innerHTML = `<div style="text-align:center; padding:40px 20px; color:var(--apple-subtext); font-size:13.5px; line-height:1.6;">상단의 타이틀을 눌러 <b>여행 날짜</b>를 설정한 후<br>나만의 여행 일정을 추가해 보세요!</div>`;
+      return;
+    }
+
+    if (!items || items.length === 0) {
+      container.innerHTML = `<div style="text-align:center; padding:30px; color:var(--apple-subtext); font-size:13px;">등록된 일정이 없습니다. 하단 버튼으로 추가해 보세요!</div>`;
+      return;
+    }
+
+    items.sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+
+    let placeCount = 0;
+    container.innerHTML = items.map((item, idx) => {
+      if (item.type === "place") {
+        placeCount++;
+        let mapTargetUrl = item.mapUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.title)}`;
+        return `
+          <div class="timeline-item" data-idx="${idx}" data-place-num="${placeCount}" data-lat="${item.lat || ''}" data-lng="${item.lng || ''}">
+            <div class="place-card" id="placeCard-${idx}" onclick="handleCardClick(${idx})">
+              <div class="place-badge">
+                <div class="badge-num">${placeCount}</div>
+                <span class="badge-time">${item.time || ''}</span>
+              </div>
+              <div class="place-content">
+                <h4>📍 ${item.title}</h4>
+                <p>${item.note || '메모 없음'}</p>
+              </div>
+              <a href="${mapTargetUrl}" target="_blank" class="map-link-btn" onclick="event.stopPropagation();">
+                구글맵 ↗
+              </a>
+            </div>
+          </div>
+        `;
+      } else {
+        return `
+          <div class="timeline-item" data-idx="${idx}">
+            <div class="memo-card" onclick="handleCardClick(${idx})">
+              <div class="memo-header">📝 ${item.time || '시간미정'}</div>
+              <div class="memo-content">${item.content}</div>
+            </div>
+          </div>
+        `;
+      }
+    }).join("");
+  }
+
+  function updateMapMarkersAndRoute(items) {
+    markers.forEach(m => m.setMap(null));
+    markers = [];
+    if (routePolyline) routePolyline.setMap(null);
+    if (!map) return;
+
+    const bounds = new google.maps.LatLngBounds();
+    const pathCoords = [];
+    let placeCount = 0;
+
+    items.forEach((item, idx) => {
+      if (item.type === "place" && item.lat && item.lng) {
+        placeCount++;
+        const pos = { lat: parseFloat(item.lat), lng: parseFloat(item.lng) };
+        pathCoords.push(pos);
+
+        const svgIcon = {
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+              <circle cx="16" cy="16" r="14" fill="#0071e3" stroke="#ffffff" stroke-width="2.5"/>
+              <text x="16" y="21" font-size="13" font-weight="bold" fill="#ffffff" text-anchor="middle">${placeCount}</text>
+            </svg>
+          `),
+          scaledSize: new google.maps.Size(32, 32),
+          anchor: new google.maps.Point(16, 16)
+        };
+        const marker = new google.maps.Marker({ position: pos, map: map, title: item.title, icon: svgIcon });
+        marker.addListener("click", () => { focusMapTo(pos.lat, pos.lng, idx, 15); });
+        markers.push(marker);
+        bounds.extend(pos);
+      }
+    });
+
+    if (pathCoords.length > 1) {
+      const lineSymbol = { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 3 };
+      const arrowSymbol = { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 3, strokeColor: '#0071e3', fillColor: '#0071e3', fillOpacity: 1 };
+
+      routePolyline = new google.maps.Polyline({
+        path: pathCoords, strokeColor: '#0071e3', strokeOpacity: 0,
+        icons: [
+          { icon: lineSymbol, offset: '0', repeat: '15px' },
+          { icon: arrowSymbol, offset: '50%', repeat: '80px' }
+        ],
+        map: map
+      });
+    }
+
+    currentPlaceBounds = bounds;
+    if (placeCount > 0) {
+      if (placeCount === 1) {
+        map.setCenter(bounds.getCenter());
+        map.setZoom(14);
+      } else {
+        map.fitBounds(bounds);
+      }
+    }
+  }
+
+  function focusMapTo(lat, lng, idx, zoomLevel = 14) {
+    if (!map || !lat || !lng) return;
+    map.panTo({ lat: parseFloat(lat), lng: parseFloat(lng) });
+    map.setZoom(zoomLevel);
+    document.querySelectorAll(".place-card").forEach(c => c.classList.remove("active-target"));
+    const card = document.getElementById(`placeCard-${idx}`);
+    if (card) card.classList.add("active-target");
+  }
+
+  window.addEventListener('scroll', () => {
+    if (!map) return;
+    if (window.scrollY < 30) {
+      if (activeFocusIndex !== -1) {
+        activeFocusIndex = -1;
+        if (currentPlaceBounds && !currentPlaceBounds.isEmpty()) {
+          map.fitBounds(currentPlaceBounds);
+          document.querySelectorAll(".place-card").forEach(c => c.classList.remove("active-target"));
+        }
+      }
+      return;
+    }
+
+    const placeItems = Array.from(document.querySelectorAll('.timeline-item[data-lat]'));
+    if (placeItems.length === 0) return;
+
+    const targetBorderY = 410;
+    let currentTargetIndex = 0;
+    for (let i = 0; i < placeItems.length; i++) {
+      const rect = placeItems[i].getBoundingClientRect();
+      if (rect.top <= targetBorderY) {
+        currentTargetIndex = i;
+      } else {
+        break;
+      }
+    }
+
+    if (currentTargetIndex !== activeFocusIndex) {
+      activeFocusIndex = currentTargetIndex;
+      const targetItem = placeItems[currentTargetIndex];
+      const lat = targetItem.getAttribute('data-lat');
+      const lng = targetItem.getAttribute('data-lng');
+      const idx = targetItem.getAttribute('data-idx');
+      if (lat && lng) focusMapTo(lat, lng, idx, 14);
+    }
+  });
+
+  window.openTripConfigModal = function() {
+    document.getElementById("configTripTitle").value = masterData.title || "";
+    document.getElementById("configStartDate").value = masterData.startDate || "";
+    document.getElementById("configEndDate").value = masterData.endDate || "";
+    document.getElementById("tripConfigModal").style.display = "flex";
+  };
+
+  window.submitTripConfig = function() {
+    const title = document.getElementById("configTripTitle").value.trim();
+    const startDate = document.getElementById("configStartDate").value;
+    const endDate = document.getElementById("configEndDate").value;
+
+    if (!title) { alert("여행 제목을 입력해 주세요."); return; }
+    if (!startDate || !endDate) { alert("여행 시작일과 종료일을 모두 선택해 주세요."); return; }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    if (start > end) { alert("종료일은 시작일보다 이후여야 합니다."); return; }
+
+    let dayList = [];
+    let curr = new Date(start);
+    while (curr <= end) {
+      let m = curr.getMonth() + 1;
+      let d = curr.getDate();
+      let dayName = WEEK_DAYS[curr.getDay()];
+      let dateLabel = `${m}/${d} ${dayName}`;
+
+      let existingDay = (masterData.days || []).find(item => item.date === dateLabel);
+      if (existingDay) {
+        dayList.push(existingDay);
+      } else {
+        dayList.push({ date: dateLabel, items: [] });
+      }
+      curr.setDate(curr.getDate() + 1);
+    }
+
+    masterData.title = title;
+    masterData.startDate = startDate;
+    masterData.endDate = endDate;
+    masterData.days = dayList;
+
+    selectedDay = 0;
+    saveData();
+    closeModals();
+  };
+
+  window.handleCardClick = function(idx) {
+    if (!masterData.days || !masterData.days[selectedDay]) return;
+    const item = masterData.days[selectedDay].items[idx];
+    editingItemIndex = idx;
+    if (item.type === "place") {
+      if (item.lat && item.lng) focusMapTo(item.lat, item.lng, idx, 15);
+      document.getElementById("schModalTitle").textContent = "📍 일정 수정 및 삭제";
+      document.getElementById("schSubmitBtn").textContent = "수정완료";
+      document.getElementById("schDeleteBtn").style.display = "block";
+      document.getElementById("schTitle").value = item.title || "";
+      setTimePickerValue("sch", item.time);
+      document.getElementById("schUrl").value = item.mapUrl || "";
+      document.getElementById("schNote").value = item.note || "";
+      document.getElementById("scheduleModal").style.display = "flex";
+    } else {
+      document.getElementById("memoModalTitle").textContent = "📝 메모 수정 및 삭제";
+      document.getElementById("memoSubmitBtn").textContent = "수정완료";
+      document.getElementById("memoDeleteBtn").style.display = "block";
+      setTimePickerValue("memo", item.time);
+      document.getElementById("memoContent").value = item.content || "";
+      document.getElementById("memoModal").style.display = "flex";
+    }
+  };
+
+  window.openAddScheduleModal = function() {
+    if (!masterData.days || masterData.days.length === 0) {
+      alert("여행 날짜를 먼저 설정해 주세요.");
+      openTripConfigModal();
+      return;
+    }
+    editingItemIndex = null;
+    document.getElementById("schModalTitle").textContent = "📍 새 일정 추가";
+    document.getElementById("schSubmitBtn").textContent = "추가하기";
+    document.getElementById("schDeleteBtn").style.display = "none";
+    document.getElementById("schTitle").value = "";
+    setTimePickerValue("sch", "09:00");
+    document.getElementById("schUrl").value = "";
+    document.getElementById("schNote").value = "";
+    document.getElementById("scheduleModal").style.display = "flex";
+  };
+
+  window.openAddMemoModal = function() {
+    if (!masterData.days || masterData.days.length === 0) {
+      alert("여행 날짜를 먼저 설정해 주세요.");
+      openTripConfigModal();
+      return;
+    }
+    editingItemIndex = null;
+    document.getElementById("memoModalTitle").textContent = "📝 간단 메모 추가";
+    document.getElementById("memoSubmitBtn").textContent = "메모 등록";
+    document.getElementById("memoDeleteBtn").style.display = "none";
+    setTimePickerValue("memo", "12:00");
+    document.getElementById("memoContent").value = "";
+    document.getElementById("memoModal").style.display = "flex";
+  };
+
+  window.closeModals = function() {
+    document.getElementById("tripConfigModal").style.display = "none";
+    document.getElementById("scheduleModal").style.display = "none";
+    document.getElementById("memoModal").style.display = "none";
+    editingItemIndex = null;
+  };
+
+  function parseCoordsFromUrl(url) {
+    if (!url) return null;
+    let match = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (match) return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+    match = url.match(/q=(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (match) return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+    return null;
+  }
+
+  // [핵심 로직] 저장 버튼 누를 때 서버리스 API를 태워 축약 주소를 긴 주소로 변환
+  window.submitScheduleModal = async function() {
+    const title = document.getElementById("schTitle").value.trim();
+    const time = getTimePickerValue("sch");
+    let url = document.getElementById("schUrl").value.trim();
+    const note = document.getElementById("schNote").value.trim();
+    if (!title) { alert("일정명(장소)을 입력해주세요."); return; }
+
+    // 만약 사용자가 축약 주소를 넣었다면 서버리스 API를 통해 긴 주소로 변환 요청
+    if (url && url.includes('maps.app.goo.gl')) {
+      try {
+        const res = await fetch(`/api/expand?url=${encodeURIComponent(url)}`);
+        const data = await res.json();
+        if (data && data.expandedUrl) {
+          url = data.expandedUrl; // 세탁된 진짜 긴 주소로 교체!
+        }
+      } catch (e) {
+        console.error("URL 변환 실패, 원본 사용", e);
+      }
+    }
+
+    let coords = parseCoordsFromUrl(url);
+    if (!coords) {
+      const geocoder = new google.maps.Geocoder();
+      geocoder.geocode({ address: title }, (results, status) => {
+        let lat = 37.5665, lng = 126.9780;
+        if (status === "OK" && results[0]) {
+          lat = results[0].geometry.location.lat();
+          lng = results[0].geometry.location.lng();
+        }
+        applyScheduleData(title, time, note, url, lat, lng);
+      });
+    } else {
+      applyScheduleData(title, time, note, url, coords.lat, coords.lng);
+    }
+  };
+
+  function applyScheduleData(title, time, note, mapUrl, lat, lng) {
+    if (!masterData.days[selectedDay].items) masterData.days[selectedDay].items = [];
+
+    if (editingItemIndex !== null && editingItemIndex >= 0) {
+      masterData.days[selectedDay].items[editingItemIndex] = { ...masterData.days[selectedDay].items[editingItemIndex], type: "place", title, time, note, mapUrl, lat, lng };
+    } else {
+      masterData.days[selectedDay].items.push({ type: "place", title, time, note, mapUrl, lat, lng });
+    }
+    saveData();
+    closeModals();
+  }
+
+  window.submitMemoModal = function() {
+    const time = getTimePickerValue("memo");
+    const content = document.getElementById("memoContent").value.trim();
+    if (!content) { alert("메모 내용을 입력해주세요."); return; }
+
+    if (!masterData.days[selectedDay].items) masterData.days[selectedDay].items = [];
+
+    if (editingItemIndex !== null && editingItemIndex >= 0) {
+      masterData.days[selectedDay].items[editingItemIndex] = { type: "memo", time, content };
+    } else {
+      masterData.days[selectedDay].items.push({ type: "memo", time, content });
+    }
+    saveData();
+    closeModals();
+  };
+
+  window.deleteCurrentItem = function() {
+    if (editingItemIndex !== null && editingItemIndex >= 0) {
+      if (confirm("정말 이 항목을 삭제하시겠습니까?")) {
+        masterData.days[selectedDay].items.splice(editingItemIndex, 1);
+        saveData();
+        closeModals();
+      }
+    }
+  };
+</script>
+
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB5NgoMjam4c6V-tx6yNU2RtDSiFRC5wKE&libraries=places&callback=initMap" async defer></script>
+</body>
+</html>
