@@ -185,7 +185,7 @@ button { cursor: pointer; border: none; outline: none; }
   box-shadow: 0 20px 40px rgba(0,0,0,0.15); max-height: 85vh; overflow-y: auto;
 }
 .modal-content h3 { margin-top: 0; font-size: 17px; font-weight: 700; color: var(--apple-text); }
-.field { display: grid; gap: 6px; margin-bottom: 14px; }
+.field { display: grid; gap: 6px; margin-bottom: 14px; width: 100%; }
 .field label { font-size: 12px; font-weight: 600; color: var(--apple-subtext); }
 
 .time-picker-group {
@@ -200,6 +200,16 @@ input, textarea {
   width: 100%; border: 1px solid var(--apple-line); border-radius: 12px; padding: 10px;
   font-size: 14px; background: #f2f2f7; transition: all 0.2s; box-sizing: border-box;
 }
+
+/* iOS 사파리 날짜 입력창(input[type=date]) 너비 돌출 방지 처리 */
+input[type="date"] {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  min-width: 0;
+  width: 100%;
+}
+
 input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blue); outline: none; }
 .btn { border: 0; border-radius: 12px; padding: 12px 14px; font-weight: 700; font-size: 13px; cursor: pointer; }
 .btn.primary { background: var(--apple-blue); color: white; }
