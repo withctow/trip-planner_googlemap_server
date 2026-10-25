@@ -469,19 +469,51 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
       return;
     }
     if (selectedDay >= masterData.days.length) selectedDay = 0;
-    const d = masterData.days[selectedDay];
     
-    const hotel = d.hotel;
+    // 현재 선택된 날짜와 그 다음 날짜 객체 가져오기 (이동일 판별용)
+    const currentDayData = masterData.days[selectedDay];
+    const hotel = currentDayData.hotel;
     const hotelName = hotel && hotel.name ? hotel.name : "등록된 숙소가 없습니다";
     const hotelUrl = hotel && hotel.url ? hotel.url : "";
-    const rangeStr = hotel && hotel.checkIn && hotel.checkOut ? ` (${hotel.checkIn.replace(/-/g, '/').slice(5)}~${hotel.checkOut.replace(/-/g, '/').slice(5)})` : "";
 
-    if (hotelUrl) {
+    let rangeStr = "";
+    if (hotel && hotel.checkIn && hotel.checkOut) {
+      // 체크아웃 전날 구하기
+      let outObj = new Date(hotel.checkOut);
+      outObj.setDate(outObj.getDate() - 1);
+      let outStr = `${String(outObj.getMonth() + 1).padStart(2, '0')}/${String(outObj.getDate()).padStart(2, '0')}`;
+      let inStr = hotel.checkIn.replace(/-/g, '/').slice(5);
+      rangeStr = ` (${inStr}~${outStr})`;
+    }
+
+    // 숙소 이동일(체크인 날짜가 오늘 날짜와 일치하는 경우) 확인
+    let isMovingDay = false;
+    if (hotel && hotel.checkIn) {
+      let parts = currentDayData.date.split(" ");
+      let [m, day] = parts[0].split("/");
+      let year = masterData.startDate ? masterData.startDate.split("-")[0] : new Date().getFullYear();
+      let dayDateObj = new Date(`${year}-${m.padStart(2,'0')}-${day.padStart(2,'0')}`);
+      let inDateObj = new Date(hotel.checkIn);
+      if (dayDateObj.getTime() === inDateObj.getTime()) {
+        isMovingDay = true;
+      }
+    }
+
+    let nameDisplayHtml = "";
+    if (isMovingDay && hotel && hotel.name) {
+      nameDisplayHtml = `<span style="font-weight:700; color:#0071e3;">[이동일]</span> <span style="font-weight:500; color:var(--apple-text);">${hotel.name}${rangeStr}</span>`;
+    } else if (hotel && hotel.name) {
+      nameDisplayHtml = `<span style="font-weight:500; color:var(--apple-text);">${hotel.name}${rangeStr}</span>`;
+    } else {
+      nameDisplayHtml = `<span style="font-weight:500; color:var(--apple-subtext);">${hotelName}</span>`;
+    }
+
+    if (hotelUrl && hotel && hotel.name) {
       container.innerHTML = `
         <a href="${hotelUrl}" target="_blank" class="hotel-banner">
           <div class="hotel-banner-left">
             <span>🏠 숙소:</span>
-            <span style="font-weight:500; color:var(--apple-text);">${hotelName}${rangeStr}</span>
+            ${nameDisplayHtml}
           </div>
           <div class="weather-slot">날씨 자리</div>
         </a>
@@ -491,7 +523,7 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
         <div class="hotel-banner" style="cursor: default;">
           <div class="hotel-banner-left">
             <span>🏠 숙소:</span>
-            <span style="font-weight:500; color:var(--apple-subtext);">${hotelName}${rangeStr}</span>
+            ${nameDisplayHtml}
           </div>
           <div class="weather-slot">날씨 자리</div>
         </div>
@@ -727,27 +759,20 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
       return;
     }
 
-    // 날짜별로 순회하면서 겹침 여부 확인 (현재 수정중인 숙소의 기존 기간 제외)
     for (let i = 0; i < masterData.days.length; i++) {
       let d = masterData.days[i];
       let parts = d.date.split(" ");
-      let monthDay = parts[0]; // 예: "11/14"
+      let monthDay = parts[0];
       let [m, day] = monthDay.split("/");
       let year = masterData.startDate ? masterData.startDate.split("-")[0] : new Date().getFullYear();
       let dayDateObj = new Date(`${year}-${m.padStart(2,'0')}-${day.padStart(2,'0')}`);
 
-      // 해당 날짜가 새로운 숙소 기간에 포함되는지 확인 (체크인 <= 날짜 < 체크아웃)
       if (dayDateObj >= inDate && dayDateObj < outDate) {
         if (d.hotel && d.hotel.name && d.hotel.name !== name) {
-          // 이미 다른 숙소가 완전히 점유하고 있는지 확인 (단, 경계선 날짜는 허용)
-          let existingIn = new Date(d.hotel.checkIn);
           let existingOut = new Date(d.hotel.checkOut);
-          
-          // 체크인 당일이 기존 숙소의 체크아웃 날짜와 일치하면 허용 (연쇄 배치)
           if (dayDateObj.getTime() === existingOut.getTime() && dayDateObj.getTime() === inDate.getTime()) {
             continue;
           }
-
           alert("선택하신 기간 중에 이미 등록된 다른 숙소 일정과 겹치는 날짜가 있습니다!");
           return;
         }
@@ -766,7 +791,6 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
       }
     }
 
-    // 선택한 체크인~체크아웃 범위 내의 날짜들에 숙소 정보 일괄 반영
     masterData.days.forEach(d => {
       let parts = d.date.split(" ");
       let [m, day] = parts[0].split("/");
