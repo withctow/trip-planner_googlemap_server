@@ -540,25 +540,22 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
       </div>
     `;
 
-    // 숙소 배너는 숙소 구글맵 URL로 연결, 날씨는 내부 자바스크립트에서 독립된 새창 링크 처리
     if (hotelUrl && hotel && hotel.name) {
       container.innerHTML = `<a href="${hotelUrl}" target="_blank" class="hotel-banner" onclick="handleHotelBannerClick(event)">${bannerInnerHtml}</a>`;
     } else {
       container.innerHTML = `<div class="hotel-banner" style="cursor: default;">${bannerInnerHtml}</div>`;
     }
 
-    // 날씨 정보 비동기 로드 실행 (좌표 추출 포함)
     loadWeatherForCurrentDay();
   }
 
-  // 숙소 배너 클릭 시, 사용자가 날씨 영역을 누른 게 아니라면 숙소 구글맵으로 이동
   window.handleHotelBannerClick = function(event) {
     if (event.target.closest('#weatherDisplayBox')) {
-      event.preventDefault(); // 날씨 영역 클릭 시 숙소 링크 이동 차단
+      event.preventDefault();
     }
   };
 
-  // --- 🌦️ URL 및 숙소 기반 실시간 날씨 연동 함수 ---
+  // --- 🌦️ 오직 URL 좌표 기반 날짜별 맞춤 일기예보 연동 함수 ---
   async function loadWeatherForCurrentDay() {
     const weatherBox = document.getElementById("weatherDisplayBox");
     if (!weatherBox) return;
@@ -572,17 +569,18 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
     const hotel = currentDayData.hotel;
 
     let targetHotel = hotel;
-    if ((!targetHotel || !targetHotel.name) && selectedDay > 0) {
+    if ((!targetHotel || !targetHotel.url) && selectedDay > 0) {
       for (let i = selectedDay - 1; i >= 0; i--) {
-        if (masterData.days[i].hotel && masterData.days[i].hotel.name) {
+        if (masterData.days[i].hotel && masterData.days[i].hotel.url) {
           targetHotel = masterData.days[i].hotel;
           break;
         }
       }
     }
 
-    if (!targetHotel || (!targetHotel.url && !targetHotel.name)) {
-      weatherBox.textContent = "날씨 위치 미등록";
+    // 숙소 URL이 없으면 좌표를 읽을 수 없으므로 날씨 정보 없음 표시
+    if (!targetHotel || !targetHotel.url) {
+      weatherBox.textContent = "날씨 정보 없음";
       return;
     }
 
@@ -590,69 +588,61 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
       let lat = null;
       let lng = null;
 
-      // 1. 구글맵 URL에서 정확한 핀 좌표 (!3d, !4d) 추출 시도
-      if (targetHotel.url) {
-        let match3d = targetHotel.url.match(/!3d(-?\d+\.\d+)/);
-        let match4d = targetHotel.url.match(/!4d(-?\d+\.\d+)/);
-        if (match3d && match4d) {
-          lat = parseFloat(match3d[1]);
-          lng = parseFloat(match4d[1]);
-        } else {
-          let matchAt = targetHotel.url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-          if (matchAt) {
-            lat = parseFloat(matchAt[1]);
-            lng = parseFloat(matchAt[2]);
-          }
+      // 1. 구글맵 URL에서 정확한 핀 좌표 (!3d, !4d 또는 @) 추출
+      let match3d = targetHotel.url.match(/!3d(-?\d+\.\d+)/);
+      let match4d = targetHotel.url.match(/!4d(-?\d+\.\d+)/);
+      if (match3d && match4d) {
+        lat = parseFloat(match3d[1]);
+        lng = parseFloat(match4d[1]);
+      } else {
+        let matchAt = targetHotel.url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+        if (matchAt) {
+          lat = parseFloat(matchAt[1]);
+          lng = parseFloat(matchAt[2]);
         }
       }
 
-      // 2. URL에 좌표가 없으면 숙소 이름으로 Geocoding 검색
       if (!lat || !lng) {
-        if (!window.google || !google.maps || !google.maps.Geocoder) {
-          weatherBox.textContent = "날씨 로드 중...";
-          return;
-        }
-        const geocoder = new google.maps.Geocoder();
-        const geoResult = await new Promise((resolve) => {
-          geocoder.geocode({ address: targetHotel.name }, (results, status) => {
-            if (status === "OK" && results[0]) {
-              resolve({
-                lat: results[0].geometry.location.lat(),
-                lng: results[0].geometry.location.lng()
-              });
-            } else {
-              resolve(null);
-            }
-          });
-        });
-
-        if (geoResult) {
-          lat = geoResult.lat;
-          lng = geoResult.lng;
-        } else {
-          weatherBox.textContent = "날씨 위치 확인 불가";
-          return;
-        }
-      }
-
-      // 3. Open-Meteo API 호출
-      const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`);
-      const weatherData = await weatherRes.json();
-
-      if (!weatherData || !weatherData.daily) {
-        weatherBox.textContent = "날씨 조회 실패";
+        weatherBox.textContent = "날씨 정보 없음";
         return;
       }
 
-      const maxTemp = Math.round(weatherData.daily.temperature_2m_max[0]);
-      const minTemp = Math.round(weatherData.daily.temperature_2m_min[0]);
-      const wCode = weatherData.daily.weathercode[0];
+      // 2. Open-Meteo API 호출 (해당 좌표의 일기예보 데이터 수신)
+      const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`);
+      const weatherData = await weatherRes.json();
+
+      if (!weatherData || !weatherData.daily || !weatherData.daily.time) {
+        weatherBox.textContent = "날씨 정보 없음";
+        return;
+      }
+
+      // 3. 선택한 탭의 날짜 문자열 계산 (예: "2026-11-14")
+      let year = masterData.startDate ? masterData.startDate.split("-")[0] : new Date().getFullYear();
+      let parts = currentDayData.date.split(" ")[0].split("/"); // "11/14" -> ["11", "14"]
+      let targetDateStr = "";
+      if (parts.length === 2) {
+        let m = parts[0].padStart(2, '0');
+        let d = parts[1].padStart(2, '0');
+        targetDateStr = `${year}-${m}-${d}`;
+      }
+
+      // 4. API 예보 배열에서 해당 날짜 인덱스 찾기
+      const foundIdx = weatherData.daily.time.indexOf(targetDateStr);
+      
+      // 만약 여행 날짜가 너무 미래여서 예보 데이터 범위에 없다면 (-1) "날씨 정보 없음" 표시
+      if (foundIdx === -1) {
+        weatherBox.textContent = "날씨 정보 없음";
+        return;
+      }
+
+      const maxTemp = Math.round(weatherData.daily.temperature_2m_max[foundIdx]);
+      const minTemp = Math.round(weatherData.daily.temperature_2m_min[foundIdx]);
+      const wCode = weatherData.daily.weathercode[foundIdx];
       const weatherIcon = getWeatherIcon(wCode);
 
-      // Open-Meteo 공식 상세 날씨 웹페이지 주소 생성 (해당 좌표 기준)
-      const weatherWebUrl = `https://open-meteo.com/en/code?lat=${lat}&lon=${lng}`;
+      // 상세 예보 링크 주소
+      const weatherWebUrl = `https://open-meteo.com/en/docs#latitude=${lat}&longitude=${lng}&daily=weathercode,temperature_2m_max,temperature_2m_min`;
 
-      // 4. 날씨 영역을 누르면 새창(target="_blank")으로 날씨 사이트가 열리도록 구성
       weatherBox.innerHTML = `
         <a href="${weatherWebUrl}" target="_blank" style="text-decoration:none; color:inherit; display:inline-flex; align-items:center; gap:5px;" onclick="event.stopPropagation();">
           <span>${weatherIcon}</span>
