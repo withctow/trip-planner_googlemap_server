@@ -113,6 +113,14 @@ button { cursor: pointer; border: none; outline: none; }
   color: var(--apple-subtext);
   font-size: 11px;
   font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+.weather-slot:hover {
+  background: rgba(0, 113, 227, 0.1);
 }
 .hotel-bottom-row {
   font-weight: 500;
@@ -532,15 +540,23 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
       </div>
     `;
 
+    // 숙소 배너는 숙소 구글맵 URL로 연결, 날씨는 내부 자바스크립트에서 독립된 새창 링크 처리
     if (hotelUrl && hotel && hotel.name) {
-      container.innerHTML = `<a href="${hotelUrl}" target="_blank" class="hotel-banner">${bannerInnerHtml}</a>`;
+      container.innerHTML = `<a href="${hotelUrl}" target="_blank" class="hotel-banner" onclick="handleHotelBannerClick(event)">${bannerInnerHtml}</a>`;
     } else {
       container.innerHTML = `<div class="hotel-banner" style="cursor: default;">${bannerInnerHtml}</div>`;
     }
 
-    // 날씨 정보 비동기 로드 실행
+    // 날씨 정보 비동기 로드 실행 (좌표 추출 포함)
     loadWeatherForCurrentDay();
   }
+
+  // 숙소 배너 클릭 시, 사용자가 날씨 영역을 누른 게 아니라면 숙소 구글맵으로 이동
+  window.handleHotelBannerClick = function(event) {
+    if (event.target.closest('#weatherDisplayBox')) {
+      event.preventDefault(); // 날씨 영역 클릭 시 숙소 링크 이동 차단
+    }
+  };
 
   // --- 🌦️ URL 및 숙소 기반 실시간 날씨 연동 함수 ---
   async function loadWeatherForCurrentDay() {
@@ -555,10 +571,8 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
     const currentDayData = masterData.days[selectedDay];
     const hotel = currentDayData.hotel;
 
-    // 대상을 결정하는 로직 (해당일 숙소 없으면 이전/다음 숙소 유추 혹은 기본 위치)
     let targetHotel = hotel;
     if ((!targetHotel || !targetHotel.name) && selectedDay > 0) {
-      // 오늘 숙소가 없으면 직전 숙소를 탐색
       for (let i = selectedDay - 1; i >= 0; i--) {
         if (masterData.days[i].hotel && masterData.days[i].hotel.name) {
           targetHotel = masterData.days[i].hotel;
@@ -584,7 +598,6 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
           lat = parseFloat(match3d[1]);
           lng = parseFloat(match4d[1]);
         } else {
-          // @ 형태 좌표 시도
           let matchAt = targetHotel.url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
           if (matchAt) {
             lat = parseFloat(matchAt[1]);
@@ -622,7 +635,7 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
         }
       }
 
-      // 3. Open-Meteo API 호출 (완전 무료, 키 불필요)
+      // 3. Open-Meteo API 호출
       const weatherRes = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`);
       const weatherData = await weatherRes.json();
 
@@ -631,29 +644,21 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
         return;
       }
 
-      // 오늘 날짜 인덱스 매칭 (또는 여행 날짜와 기상예보 날짜 매칭)
-      // 여기서는 예보 배열의 첫 번째 값(오늘 기준) 또는 해당 날짜 매칭
-      let dayIndex = 0;
-      if (masterData.startDate) {
-        const startTimestamp = new Date(masterData.startDate).getTime();
-        const currentTimestamp = new Date(currentDayData.date.split(" ")[0].includes("/") ? 
-          new Date().getFullYear() + "-" + currentDayData.date.split(" ")[0].replace("/", "-") : masterData.startDate).getTime();
-        // 날짜 차이 계산
-        // 단순화하여 첫 번째 일자 예보 사용 혹은 날짜 배열 매칭
-      }
-
       const maxTemp = Math.round(weatherData.daily.temperature_2m_max[0]);
       const minTemp = Math.round(weatherData.daily.temperature_2m_min[0]);
       const wCode = weatherData.daily.weathercode[0];
       const weatherIcon = getWeatherIcon(wCode);
 
-      // 4. 요구하신 스타일 렌더링 (최저기온: 옅은 파란색, 최고기온: 살짝 짙은 빨간색)
+      // Open-Meteo 공식 상세 날씨 웹페이지 주소 생성 (해당 좌표 기준)
+      const weatherWebUrl = `https://open-meteo.com/en/code?lat=${lat}&lon=${lng}`;
+
+      // 4. 날씨 영역을 누르면 새창(target="_blank")으로 날씨 사이트가 열리도록 구성
       weatherBox.innerHTML = `
-        <span style="display:inline-flex; align-items:center; gap:5px;">
+        <a href="${weatherWebUrl}" target="_blank" style="text-decoration:none; color:inherit; display:inline-flex; align-items:center; gap:5px;" onclick="event.stopPropagation();">
           <span>${weatherIcon}</span>
           <span style="color:#0071e3; font-weight:600;">min ${minTemp}°</span>
           <span style="color:#ff3b30; font-weight:600;">max ${maxTemp}°</span>
-        </span>
+        </a>
       `;
 
     } catch (e) {
