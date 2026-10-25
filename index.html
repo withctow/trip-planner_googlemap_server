@@ -89,7 +89,6 @@ button { cursor: pointer; border: none; outline: none; }
   color: var(--apple-blue); cursor: pointer; padding: 6px 0;
 }
 
-/* 숙소 배너 2단 레이아웃 (영역 침범 방지) */
 .hotel-banner {
   background: rgba(0, 113, 227, 0.06);
   border-bottom: 1px solid rgba(0, 113, 227, 0.12);
@@ -199,7 +198,7 @@ button { cursor: pointer; border: none; outline: none; }
 
 input, textarea {
   width: 100%; border: 1px solid var(--apple-line); border-radius: 12px; padding: 10px;
-  font-size: 14px; background: #f2f2f7; transition: all 0.2s;
+  font-size: 14px; background: #f2f2f7; transition: all 0.2s; box-sizing: border-box;
 }
 input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blue); outline: none; }
 .btn { border: 0; border-radius: 12px; padding: 12px 14px; font-weight: 700; font-size: 13px; cursor: pointer; }
@@ -250,11 +249,11 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
       </div>
       <div class="field">
         <label>여행 시작일</label>
-        <input type="date" id="configStartDate">
+        <input type="date" id="configStartDate" onchange="syncEndDateMin()">
       </div>
       <div class="field">
         <label>여행 종료일</label>
-        <input type="date" id="configEndDate">
+        <input type="date" id="configEndDate" onclick="handleEndDateFocus()">
       </div>
       <div style="display:flex; gap:8px; margin-top:16px;">
         <button class="btn primary" style="flex:1;" onclick="submitTripConfig()">저장하기</button>
@@ -272,11 +271,11 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
       </div>
       <div class="field">
         <label>체크인 (시작일)</label>
-        <input type="date" id="hotelCheckIn">
+        <input type="date" id="hotelCheckIn" onchange="syncHotelCheckoutMin()">
       </div>
       <div class="field">
         <label>체크아웃 (종료일)</label>
-        <input type="date" id="hotelCheckOut">
+        <input type="date" id="hotelCheckOut" onclick="handleHotelCheckoutFocus()">
       </div>
       <div class="field">
         <label>구글맵 URL (선택)</label>
@@ -489,7 +488,6 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
       rangeStr = ` (${inStr}~${outStr})`;
     }
 
-    // 진정한 '이동일' 판별: 체크인 날짜가 오늘이면서, 이전 날(또는 다른 숙소의 체크아웃일)과 맞물려 있는 경우에만 참
     let isTrueMovingDay = false;
     if (hotel && hotel.checkIn && selectedDay > 0) {
       let parts = currentDayData.date.split(" ");
@@ -499,7 +497,6 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
       let inDateObj = new Date(hotel.checkIn);
 
       if (dayDateObj.getTime() === inDateObj.getTime()) {
-        // 전날의 숙소 정보를 확인하여 다른 숙소가 있었는지 검증
         let prevDayData = masterData.days[selectedDay - 1];
         if (prevDayData && prevDayData.hotel && prevDayData.hotel.name && prevDayData.hotel.name !== hotel.name) {
           isTrueMovingDay = true;
@@ -721,6 +718,25 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
     document.getElementById("tripConfigModal").style.display = "flex";
   };
 
+  window.syncEndDateMin = function() {
+    const startVal = document.getElementById("configStartDate").value;
+    const endInput = document.getElementById("configEndDate");
+    if (startVal) {
+      endInput.min = startVal;
+      if (endInput.value && endInput.value < startVal) {
+        endInput.value = startVal;
+      }
+    }
+  };
+
+  window.handleEndDateFocus = function() {
+    const startVal = document.getElementById("configStartDate").value;
+    const endInput = document.getElementById("configEndDate");
+    if (startVal && !endInput.value) {
+      endInput.value = startVal;
+    }
+  };
+
   window.openHotelModal = function() {
     if (!masterData.days || masterData.days.length === 0) {
       alert("여행 날짜를 먼저 설정해 주세요.");
@@ -743,6 +759,25 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
     }
 
     document.getElementById("hotelModal").style.display = "flex";
+  };
+
+  window.syncHotelCheckoutMin = function() {
+    const inVal = document.getElementById("hotelCheckIn").value;
+    const outInput = document.getElementById("hotelCheckOut");
+    if (inVal) {
+      outInput.min = inVal;
+      if (outInput.value && outInput.value < inVal) {
+        outInput.value = inVal;
+      }
+    }
+  };
+
+  window.handleHotelCheckoutFocus = function() {
+    const inVal = document.getElementById("hotelCheckIn").value;
+    const outInput = document.getElementById("hotelCheckOut");
+    if (inVal && !outInput.value) {
+      outInput.value = inVal;
+    }
   };
 
   window.submitHotelModal = async function() {
