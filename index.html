@@ -89,6 +89,34 @@ button { cursor: pointer; border: none; outline: none; }
   color: var(--apple-blue); cursor: pointer; padding: 6px 0;
 }
 
+.hotel-banner {
+  background: rgba(0, 113, 227, 0.06);
+  border-bottom: 1px solid rgba(0, 113, 227, 0.12);
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--apple-text);
+  text-decoration: none;
+}
+.hotel-banner-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.weather-slot {
+  color: var(--apple-subtext);
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
 .shell { padding: 16px 16px 0; }
 
 .timeline { display: flex; flex-direction: column; gap: 14px; margin-top: 4px; }
@@ -134,13 +162,14 @@ button { cursor: pointer; border: none; outline: none; }
 .memo-header { font-size: 11px; color: #c77700; font-weight: 700; margin-bottom: 2px; }
 .memo-content { font-size: 13px; color: var(--apple-text); font-weight: 500; }
 
-.action-buttons-row { display: flex; gap: 10px; margin: 28px 0 10px; }
+.action-buttons-row { display: flex; gap: 8px; margin: 28px 0 10px; }
 .btn-add {
-  flex: 1; padding: 14px; border-radius: 16px; font-weight: 700; font-size: 14px;
-  display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s ease;
+  padding: 14px; border-radius: 16px; font-weight: 700; font-size: 14px;
+  display: flex; align-items: center; justify-content: center; gap: 4px; transition: all 0.2s ease;
 }
-.btn-add-schedule { background: var(--apple-blue); color: white; box-shadow: 0 4px 14px rgba(0, 113, 227, 0.25); }
-.btn-add-memo { background: #e5e5ea; color: #3a3a3c; }
+.btn-add-hotel { flex: 0 0 78px; background: #e5e5ea; color: #3a3a3c; font-size: 13px; }
+.btn-add-schedule { flex: 1; background: var(--apple-blue); color: white; box-shadow: 0 4px 14px rgba(0, 113, 227, 0.25); }
+.btn-add-memo { flex: 1; background: #e5e5ea; color: #3a3a3c; }
 
 .modal-overlay {
   display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
@@ -193,12 +222,15 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
     <div class="day-tabs-wrapper">
       <div class="day-tabs" id="dayTabsSchedule"></div>
     </div>
+
+    <div id="hotelBannerContainer"></div>
   </div>
 
   <main class="shell">
     <div class="timeline" id="timelineContainer"></div>
 
     <div class="action-buttons-row">
+      <button class="btn-add btn-add-hotel" onclick="openHotelModal()">🏠 숙소</button>
       <button class="btn-add btn-add-schedule" onclick="openAddScheduleModal()">+ 일정 추가</button>
       <button class="btn-add btn-add-memo" onclick="openAddMemoModal()">+ 메모 추가</button>
     </div>
@@ -221,6 +253,24 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
       </div>
       <div style="display:flex; gap:8px; margin-top:16px;">
         <button class="btn primary" style="flex:1;" onclick="submitTripConfig()">저장하기</button>
+        <button class="btn ghost" style="flex:1;" onclick="closeModals()">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="hotelModal">
+    <div class="modal-content">
+      <h3>🏠 당일 숙소 설정</h3>
+      <div class="field">
+        <label>숙소 이름</label>
+        <input type="text" id="hotelName" placeholder="예: 노보텔 시드니 센트럴">
+      </div>
+      <div class="field">
+        <label>구글맵 URL (선택)</label>
+        <input type="text" id="hotelUrl" placeholder="https://maps.app.goo.gl/...">
+      </div>
+      <div style="display:flex; gap:8px; margin-top:16px;">
+        <button class="btn primary" style="flex:1;" onclick="submitHotelModal()">저장하기</button>
         <button class="btn ghost" style="flex:1;" onclick="closeModals()">취소</button>
       </div>
     </div>
@@ -328,7 +378,9 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
     document.getElementById("syncStatus").textContent = "🔴 연결 실패";
   });
 
-  function saveData() { set(tripRef, masterData); }
+  function saveData() {
+    set(tripRef, masterData);
+  }
 
   function initTimePickers() {
     const hourSelects = [document.getElementById("schHour"), document.getElementById("memoHour")];
@@ -401,6 +453,40 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
     `).join("");
   }
 
+  function renderHotelBannerHTML() {
+    const container = document.getElementById("hotelBannerContainer");
+    if (!masterData.days || masterData.days.length === 0) {
+      container.innerHTML = "";
+      return;
+    }
+    if (selectedDay >= masterData.days.length) selectedDay = 0;
+    const d = masterData.days[selectedDay];
+    const hotelName = d.hotel && d.hotel.name ? d.hotel.name : "등록된 숙소가 없습니다";
+    const hotelUrl = d.hotel && d.hotel.url ? d.hotel.url : "";
+
+    if (hotelUrl) {
+      container.innerHTML = `
+        <a href="${hotelUrl}" target="_blank" class="hotel-banner">
+          <div class="hotel-banner-left">
+            <span>🏠 숙소:</span>
+            <span style="font-weight:500; color:var(--apple-text);">${hotelName}</span>
+          </div>
+          <div class="weather-slot">날씨 자리</div>
+        </a>
+      `;
+    } else {
+      container.innerHTML = `
+        <div class="hotel-banner" style="cursor: default;">
+          <div class="hotel-banner-left">
+            <span>🏠 숙소:</span>
+            <span style="font-weight:500; color:var(--apple-subtext);">${hotelName}</span>
+          </div>
+          <div class="weather-slot">날씨 자리</div>
+        </div>
+      `;
+    }
+  }
+
   window.selectDay = function(i) {
     selectedDay = i;
     activeFocusIndex = -1;
@@ -411,6 +497,7 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
   function renderTimelineAndMap() {
     const dayTabsEl = document.getElementById("dayTabsSchedule");
     if (dayTabsEl) dayTabsEl.innerHTML = renderDayTabsHTML();
+    renderHotelBannerHTML();
 
     if (!masterData.days || masterData.days.length === 0) {
       renderTimeline([]);
@@ -588,6 +675,43 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
     document.getElementById("tripConfigModal").style.display = "flex";
   };
 
+  window.openHotelModal = function() {
+    if (!masterData.days || masterData.days.length === 0) {
+      alert("여행 날짜를 먼저 설정해 주세요.");
+      openTripConfigModal();
+      return;
+    }
+    const currentHotel = (masterData.days[selectedDay] && masterData.days[selectedDay].hotel) ? masterData.days[selectedDay].hotel : { name: "", url: "" };
+    document.getElementById("hotelName").value = currentHotel.name || "";
+    document.getElementById("hotelUrl").value = currentHotel.url || "";
+    document.getElementById("hotelModal").style.display = "flex";
+  };
+
+  window.submitHotelModal = async function() {
+    let name = document.getElementById("hotelName").value.trim();
+    let url = document.getElementById("hotelUrl").value.trim();
+    if (!name) { alert("숙소 이름을 입력해 주세요."); return; }
+
+    if (url && url.includes('maps.app.goo.gl')) {
+      try {
+        const res = await fetch(`/api/expand?url=${encodeURIComponent(url)}`);
+        const data = await res.json();
+        if (data && data.expandedUrl) {
+          url = data.expandedUrl;
+        }
+      } catch (e) {
+        console.error("URL 변환 실패, 원본 사용", e);
+      }
+    }
+
+    if (!masterData.days[selectedDay].hotel) masterData.days[selectedDay].hotel = {};
+    masterData.days[selectedDay].hotel.name = name;
+    masterData.days[selectedDay].hotel.url = url;
+
+    saveData();
+    closeModals();
+  };
+
   window.submitTripConfig = function() {
     const title = document.getElementById("configTripTitle").value.trim();
     const startDate = document.getElementById("configStartDate").value;
@@ -612,7 +736,7 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
       if (existingDay) {
         dayList.push(existingDay);
       } else {
-        dayList.push({ date: dateLabel, items: [] });
+        dayList.push({ date: dateLabel, items: [], hotel: { name: "", url: "" } });
       }
       curr.setDate(curr.getDate() + 1);
     }
@@ -685,12 +809,12 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
 
   window.closeModals = function() {
     document.getElementById("tripConfigModal").style.display = "none";
+    document.getElementById("hotelModal").style.display = "none";
     document.getElementById("scheduleModal").style.display = "none";
     document.getElementById("memoModal").style.display = "none";
     editingItemIndex = null;
   };
 
-  // [수정된 핵심 로직] 구글맵 긴 주소에서 진짜 핀 좌표(3d...4d...)를 최우선으로 정확하게 추출
   function parseCoordsFromUrl(url) {
     if (!url) return null;
     let match = url.match(/3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
