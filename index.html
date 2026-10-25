@@ -690,16 +690,18 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
     editingItemIndex = null;
   };
 
+  // [수정된 핵심 로직] 구글맵 긴 주소에서 진짜 핀 좌표(3d...4d...)를 최우선으로 정확하게 추출
   function parseCoordsFromUrl(url) {
     if (!url) return null;
-    let match = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    let match = url.match(/3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/);
+    if (match) return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
+    match = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
     if (match) return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
     match = url.match(/q=(-?\d+\.\d+),(-?\d+\.\d+)/);
     if (match) return { lat: parseFloat(match[1]), lng: parseFloat(match[2]) };
     return null;
   }
 
-  // [핵심 로직] 저장 버튼 누를 때 서버리스 API를 태워 축약 주소를 긴 주소로 변환
   window.submitScheduleModal = async function() {
     const title = document.getElementById("schTitle").value.trim();
     const time = getTimePickerValue("sch");
@@ -707,13 +709,12 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
     const note = document.getElementById("schNote").value.trim();
     if (!title) { alert("일정명(장소)을 입력해주세요."); return; }
 
-    // 만약 사용자가 축약 주소를 넣었다면 서버리스 API를 통해 긴 주소로 변환 요청
     if (url && url.includes('maps.app.goo.gl')) {
       try {
         const res = await fetch(`/api/expand?url=${encodeURIComponent(url)}`);
         const data = await res.json();
         if (data && data.expandedUrl) {
-          url = data.expandedUrl; // 세탁된 진짜 긴 주소로 교체!
+          url = data.expandedUrl;
         }
       } catch (e) {
         console.error("URL 변환 실패, 원본 사용", e);
