@@ -201,7 +201,6 @@ input, textarea {
   font-size: 14px; background: #f2f2f7; transition: all 0.2s; box-sizing: border-box;
 }
 
-/* iOS 사파리 날짜 입력창(input[type=date]) 너비 돌출 방지 처리 */
 input[type="date"] {
   -webkit-appearance: none;
   -moz-appearance: none;
@@ -700,7 +699,9 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
     const placeItems = Array.from(document.querySelectorAll('.timeline-item[data-lat]'));
     if (placeItems.length === 0) return;
 
-    const targetBorderY = 410;
+    // 숙소 정보 영역(두 줄)이 추가되어 상단 고정영역이 늘어남에 따라,
+    // 포커스 기준선을 약 470px 지점(숙소 정보 하단 경계선 바로 직전)으로 조정
+    const targetBorderY = 470;
     let currentTargetIndex = 0;
     for (let i = 0; i < placeItems.length; i++) {
       const rect = placeItems[i].getBoundingClientRect();
