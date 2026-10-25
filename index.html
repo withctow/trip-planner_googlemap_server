@@ -260,10 +260,18 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
 
   <div class="modal-overlay" id="hotelModal">
     <div class="modal-content">
-      <h3>🏠 당일 숙소 설정</h3>
+      <h3>🏠 숙소 기간 등록</h3>
       <div class="field">
         <label>숙소 이름</label>
-        <input type="text" id="hotelName" placeholder="예: 노보텔 시드니 센트럴">
+        <input type="text" id="hotelName" placeholder="예: 파크로얄 달링하버">
+      </div>
+      <div class="field">
+        <label>체크인 (시작일)</label>
+        <input type="date" id="hotelCheckIn">
+      </div>
+      <div class="field">
+        <label>체크아웃 (종료일)</label>
+        <input type="date" id="hotelCheckOut">
       </div>
       <div class="field">
         <label>구글맵 URL (선택)</label>
@@ -271,6 +279,7 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
       </div>
       <div style="display:flex; gap:8px; margin-top:16px;">
         <button class="btn primary" style="flex:1;" onclick="submitHotelModal()">저장하기</button>
+        <button class="btn danger" id="hotelDeleteBtn" style="display:none;" onclick="deleteHotel()">숙소 삭제</button>
         <button class="btn ghost" style="flex:1;" onclick="closeModals()">취소</button>
       </div>
     </div>
@@ -461,15 +470,18 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
     }
     if (selectedDay >= masterData.days.length) selectedDay = 0;
     const d = masterData.days[selectedDay];
-    const hotelName = d.hotel && d.hotel.name ? d.hotel.name : "등록된 숙소가 없습니다";
-    const hotelUrl = d.hotel && d.hotel.url ? d.hotel.url : "";
+    
+    const hotel = d.hotel;
+    const hotelName = hotel && hotel.name ? hotel.name : "등록된 숙소가 없습니다";
+    const hotelUrl = hotel && hotel.url ? hotel.url : "";
+    const rangeStr = hotel && hotel.checkIn && hotel.checkOut ? ` (${hotel.checkIn.replace(/-/g, '/').slice(5)}~${hotel.checkOut.replace(/-/g, '/').slice(5)})` : "";
 
     if (hotelUrl) {
       container.innerHTML = `
         <a href="${hotelUrl}" target="_blank" class="hotel-banner">
           <div class="hotel-banner-left">
             <span>🏠 숙소:</span>
-            <span style="font-weight:500; color:var(--apple-text);">${hotelName}</span>
+            <span style="font-weight:500; color:var(--apple-text);">${hotelName}${rangeStr}</span>
           </div>
           <div class="weather-slot">날씨 자리</div>
         </a>
@@ -479,7 +491,7 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
         <div class="hotel-banner" style="cursor: default;">
           <div class="hotel-banner-left">
             <span>🏠 숙소:</span>
-            <span style="font-weight:500; color:var(--apple-subtext);">${hotelName}</span>
+            <span style="font-weight:500; color:var(--apple-subtext);">${hotelName}${rangeStr}</span>
           </div>
           <div class="weather-slot">날씨 자리</div>
         </div>
@@ -681,16 +693,66 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
       openTripConfigModal();
       return;
     }
-    const currentHotel = (masterData.days[selectedDay] && masterData.days[selectedDay].hotel) ? masterData.days[selectedDay].hotel : { name: "", url: "" };
+    const currentDay = masterData.days[selectedDay];
+    const currentHotel = currentDay && currentDay.hotel ? currentDay.hotel : { name: "", checkIn: "", checkOut: "", url: "" };
+    
     document.getElementById("hotelName").value = currentHotel.name || "";
+    document.getElementById("hotelCheckIn").value = currentHotel.checkIn || "";
+    document.getElementById("hotelCheckOut").value = currentHotel.checkOut || "";
     document.getElementById("hotelUrl").value = currentHotel.url || "";
+    
+    const deleteBtn = document.getElementById("hotelDeleteBtn");
+    if (currentHotel.name) {
+      deleteBtn.style.display = "block";
+    } else {
+      deleteBtn.style.display = "none";
+    }
+
     document.getElementById("hotelModal").style.display = "flex";
   };
 
   window.submitHotelModal = async function() {
     let name = document.getElementById("hotelName").value.trim();
+    let checkIn = document.getElementById("hotelCheckIn").value;
+    let checkOut = document.getElementById("hotelCheckOut").value;
     let url = document.getElementById("hotelUrl").value.trim();
+
     if (!name) { alert("숙소 이름을 입력해 주세요."); return; }
+    if (!checkIn || !checkOut) { alert("체크인과 체크아웃 날짜를 모두 선택해 주세요."); return; }
+
+    const inDate = new Date(checkIn);
+    const outDate = new Date(checkOut);
+    if (inDate >= outDate) {
+      alert("체크아웃 날짜는 체크인 날짜보다 이후여야 합니다.");
+      return;
+    }
+
+    // 날짜별로 순회하면서 겹침 여부 확인 (현재 수정중인 숙소의 기존 기간 제외)
+    for (let i = 0; i < masterData.days.length; i++) {
+      let d = masterData.days[i];
+      let parts = d.date.split(" ");
+      let monthDay = parts[0]; // 예: "11/14"
+      let [m, day] = monthDay.split("/");
+      let year = masterData.startDate ? masterData.startDate.split("-")[0] : new Date().getFullYear();
+      let dayDateObj = new Date(`${year}-${m.padStart(2,'0')}-${day.padStart(2,'0')}`);
+
+      // 해당 날짜가 새로운 숙소 기간에 포함되는지 확인 (체크인 <= 날짜 < 체크아웃)
+      if (dayDateObj >= inDate && dayDateObj < outDate) {
+        if (d.hotel && d.hotel.name && d.hotel.name !== name) {
+          // 이미 다른 숙소가 완전히 점유하고 있는지 확인 (단, 경계선 날짜는 허용)
+          let existingIn = new Date(d.hotel.checkIn);
+          let existingOut = new Date(d.hotel.checkOut);
+          
+          // 체크인 당일이 기존 숙소의 체크아웃 날짜와 일치하면 허용 (연쇄 배치)
+          if (dayDateObj.getTime() === existingOut.getTime() && dayDateObj.getTime() === inDate.getTime()) {
+            continue;
+          }
+
+          alert("선택하신 기간 중에 이미 등록된 다른 숙소 일정과 겹치는 날짜가 있습니다!");
+          return;
+        }
+      }
+    }
 
     if (url && url.includes('maps.app.goo.gl')) {
       try {
@@ -704,12 +766,35 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
       }
     }
 
-    if (!masterData.days[selectedDay].hotel) masterData.days[selectedDay].hotel = {};
-    masterData.days[selectedDay].hotel.name = name;
-    masterData.days[selectedDay].hotel.url = url;
+    // 선택한 체크인~체크아웃 범위 내의 날짜들에 숙소 정보 일괄 반영
+    masterData.days.forEach(d => {
+      let parts = d.date.split(" ");
+      let [m, day] = parts[0].split("/");
+      let year = masterData.startDate ? masterData.startDate.split("-")[0] : new Date().getFullYear();
+      let dayDateObj = new Date(`${year}-${m.padStart(2,'0')}-${day.padStart(2,'0')}`);
+
+      if (dayDateObj >= inDate && dayDateObj < outDate) {
+        d.hotel = { name, checkIn, checkOut, url };
+      }
+    });
 
     saveData();
     closeModals();
+  };
+
+  window.deleteHotel = function() {
+    if (confirm("정말 이 숙소 기간 설정을 삭제하시겠습니까?")) {
+      const currentHotelName = masterData.days[selectedDay]?.hotel?.name;
+      if (currentHotelName) {
+        masterData.days.forEach(d => {
+          if (d.hotel && d.hotel.name === currentHotelName) {
+            d.hotel = { name: "", checkIn: "", checkOut: "", url: "" };
+          }
+        });
+        saveData();
+      }
+      closeModals();
+    }
   };
 
   window.submitTripConfig = function() {
@@ -736,7 +821,7 @@ input:focus, textarea:focus { background: #ffffff; border-color: var(--apple-blu
       if (existingDay) {
         dayList.push(existingDay);
       } else {
-        dayList.push({ date: dateLabel, items: [], hotel: { name: "", url: "" } });
+        dayList.push({ date: dateLabel, items: [], hotel: { name: "", checkIn: "", checkOut: "", url: "" } });
       }
       curr.setDate(curr.getDate() + 1);
     }
